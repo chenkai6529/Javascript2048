@@ -1,0 +1,435 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="Content-Language" content="zh-CN">
+    <style>
+    .field{
+        position:relative;
+        margin:50px 0px 0px 100px;
+        background-color: #977957;
+        padding:2px;
+    }
+    .item{
+        position:absolute;
+        margin:2px;
+        background-color: rgb(74, 162, 166);
+        font-family: 微软雅黑;
+        font-size:60px;
+        color:white;
+        font-weight: bold;
+        text-align: center;
+        vertical-align: middle;
+        line-height: 100px;
+        border-radius:5px;
+    }
+    .scoreFrame{
+        padding-top: 55px;
+    }
+    #scoreLabel,#bestLabel{
+        font-family: 微软雅黑;
+        font-size: 18px;
+        display: block;
+        background-color: rgb(207, 165, 32);
+        font-weight: bold;
+        color:white;
+        padding:5px;
+        text-align: center;
+        width: 100px;
+    }
+    .score{
+        text-align: center;
+        padding:5px 0px;
+        font-size: 25px;
+        color:#FF7000;
+        text-shadow:0 0 2px #FFC200;
+        font-weight: bold;
+    }
+    body{
+        height:550px;
+    }
+</style>
+    <script src="jquery-2.1.1.min.js" type="text/javascript"></script>
+    <script>
+        function isChrome() {
+            if(navigator.appVersion.indexOf('Chrome')>=0)
+                return true;
+            else
+                return false;
+        }
+        var chrome = isChrome(); 
+        function setCookie(name,value){
+            if(!chrome)
+            {
+                var Days = 3000;
+                var exp = new Date(); 
+                exp.setTime(exp.getTime() + Days*24*60*60*1000);
+                document.cookie = name + "="+ escape (value) + ";expires=" + exp.toGMTString();
+            }
+            else
+                localStorage.setItem(name,value);
+        }
+        //读取cookies
+        function getCookie(name){
+            if(!chrome)
+            {
+                var arr,reg=new RegExp("(^| )"+name+"=([^;]*)(;|$)");
+                if(arr=document.cookie.match(reg)) return unescape(arr[2]);
+                else return null;
+            }
+            else
+                return localStorage.getItem(name);
+        }
+    function Field(w,h){
+
+        this.width = w?w:400;
+        this.height = h?h:400;
+        this.status=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        this.items=[];
+        this.score=0;
+        this.best=0;
+        this.isMoved=0;
+
+        this.show=function(){
+            this.content=$("<div class='field'></div>");
+            this.content.width(this.width).height(this.height).appendTo('#screen');
+            this.scoreC=$("<div class='score'>"+this.score+"</div>");
+            this.scoreC.insertAfter('#scoreLabel');
+            var b=getCookie("ck2048bestscore");
+            this.best=b==null?0:b;
+            this.bestC=$("<div class='score'>"+this.best+"</div>");
+            this.bestC.insertAfter('#bestLabel');
+        }
+        this.updateScore=function(){
+            this.scoreC.html(this.score);
+        }
+        
+        this.getItemByPosition=function(p)
+        {
+            for(var i in this.items)
+            {
+                if(this.items[i].position==p)
+                    return this.items[i];
+            }
+            return null;
+        }
+        this.removeItem=function(i){
+            i.content.remove();
+            this.items.splice(this.items.indexOf(i),1);
+        }
+        this.moveUp=function(){
+            for(var i=0;i<16;i++)
+            {
+                if(this.status[i]==1)
+                {
+                    var cur=this.getItemByPosition(i);
+                    var p=cur.position;
+                    while(p>3)
+                    {
+                        if(this.status[p-4]==0)
+                            p-=4;
+                        else
+                        {
+                            var nt=this.getItemByPosition(p-4);
+                            if(cur.value==nt.value)
+                            {
+                                this.merge(cur,nt);
+                                p-=4;
+                                break;
+                            }
+                            else
+                                break;
+                        }
+                            
+                    }
+                    if(p==cur.position)
+                        continue;
+                    this.status[i]=0;
+                    this.status[p]=1;
+                    cur.position=p;
+                    cur.reset();
+                }
+            }
+        }
+        this.moveDown=function(){
+            for(var i=15;i>=0;i--)
+            {
+                if(this.status[i]==1)
+                {
+                    var cur=this.getItemByPosition(i);
+                    var p=cur.position;
+                    while(p<12)
+                    {
+                        if(this.status[p+4]==0)
+                            p+=4;
+                        else
+                        {
+                            var nt=this.getItemByPosition(p+4);
+                            if(cur.value==nt.value)
+                            {
+                                this.merge(cur,nt);
+                                p+=4;
+                                break;
+                            }
+                            else
+                                break;
+                        }
+                    }
+                    if(p==cur.position)
+                        continue;
+                    this.status[i]=0;
+                    this.status[p]=1;
+                    cur.position=p;
+                    cur.reset();
+                }
+            }
+        }
+        this.moveLeft=function(){
+            for(var i=0;i<16;i+=4)
+            {
+                if(this.status[i]==1)
+                {
+                    var cur=this.getItemByPosition(i);
+                    var p=cur.position;
+                    while(p%4!=0)
+                    {
+                        if(this.status[p-1]==0)
+                            p-=1;
+                        else
+                        {
+                            var nt=this.getItemByPosition(p-1);
+                            if(cur.value==nt.value)
+                            {
+                                this.merge(cur,nt);
+                                p-=1;
+                                break;
+                            }
+                            else
+                                break;
+                        }
+                    }
+                    if(p==cur.position)
+                    {
+                        if(i==15)
+                            break;
+                        if(i>=12)
+                            i-=15;
+                        continue;
+                    }
+                    this.status[i]=0;
+                    this.status[p]=1;
+                    cur.position=p;
+                    cur.reset();
+                }
+                if(i==15)
+                    break;
+                if(i>=12)
+                    i-=15;
+            }
+        }
+        this.moveRight=function(){
+            for(var i=15;i>=0;i-=4)
+            {
+                if(this.status[i]==1)
+                {
+                    var cur=this.getItemByPosition(i);
+                    var p=cur.position;
+                    while((p+1)%4!=0)
+                    {
+                        if(this.status[p+1]==0)
+                            p+=1;
+                        else
+                        {
+                            var nt=this.getItemByPosition(p+1);
+                            if(cur.value==nt.value)
+                            {
+                                this.merge(cur,nt);
+                                p+=1;
+                                break;
+                            }
+                            else
+                                break;
+                        }
+                    }
+                    if(p==cur.position)
+                    {
+                        if(i==0)
+                            break;
+                        if(i<=3)
+                            i+=15;
+                        continue;
+                    }
+                    this.status[i]=0;
+                    this.status[p]=1;
+                    cur.position=p;
+                    cur.reset();
+                }
+                if(i==0)
+                    break;
+                if(i<=3)
+                    i+=15;
+            }
+        }
+        this.merge=function(cur,nt){
+            cur.value=2*cur.value;
+            this.score+=cur.value;
+            this.removeItem(nt);
+        }
+        this.checkLose=function(){
+            for(var i =0;i<16;i++)
+            {
+                var cur=this.getItemByPosition(i);
+                if(i<=2||(i>=12&&i<=14))
+                {
+                    var r=this.getItemByPosition(i+1);
+                    if(cur.value==r.value)
+                        return false;
+                }
+                else if(i>=4&&i<=11)
+                {
+                    var t=this.getItemByPosition(i-4);
+                    var d=this.getItemByPosition(i+4);
+                    if((i+1)%4!=0)
+                    {
+                        var r=this.getItemByPosition(i+1);
+                        if(cur.value==t.value||cur.value==r.value||cur.value==d.value)
+                            return false;
+                    }
+                    else
+                        if(cur.value==t.value||cur.value==d.value)
+                            return false;
+                }
+
+            }
+            return true;
+        }
+    }
+
+    function Item(f){
+        if(!f)
+            return;
+        this.field=f;
+        this.space=2;
+        this.width=(this.field.width-this.space*10)/4;
+        this.height=(this.field.height-this.space*10)/4;
+        
+        this.top=this.space;
+        this.left=this.space;
+        this.position=0;
+        this.value=2;
+
+        this.init=function(v,pos){
+            var p=pos;
+            while(this.field.status[p]==1)
+            {
+                p=(p+1)%16;
+            }
+            this.position=p
+            this.field.status[this.position]=1;
+            this.value=v;
+            this.content=$("<div class='item'>"+this.value+"</div>");
+            this.field.items.push(this);
+            var t=(this.height+this.space*2)*(Math.floor(this.position/4));
+            this.top=t==0?this.space:t;
+            var l=(this.width+this.space*2)*(this.position%4);
+            this.left=l==0?this.space:l;
+            this.content.animate({width:this.width,height:this.height},100).appendTo(this.field.content);
+            this.content.css("top",this.top+"px").css("left",this.left+"px");
+        }
+
+        this.reset=function(){
+            this.content.html(this.value);
+            var t=(this.height+this.space*2)*(Math.floor(this.position/4));
+            this.top=t==0?this.space:t;
+            var l=(this.width+this.space*2)*(this.position%4);
+            this.left=l==0?this.space:l;
+            //this.content.css("top",this.top+"px").css("left",this.left+"px");
+            this.content.animate({top:this.top+"px",left:this.left+"px"},100);
+            this.content.css("background-color","rgb("+(100-this.value*13%100)+", "+(180-this.value*9%180)+", "+(200-this.value*17%200)+")");
+            if(this.value>100&&this.value<1000)
+                this.content.css("font-size","40px");
+            else if(this.value>1000)
+                this.content.css("font-size","20px");
+            this.field.updateScore();
+            this.field.isMoved=1;
+        }
+    }
+    </script>
+</head>
+<body>
+<table>
+    <tr>
+        <td id="screen"></td>
+        <td id="score" class="scoreFrame" valign="top">
+            <span id="scoreLabel">得分</span>
+            <span id=""></span>
+            <br/>
+            <span id="bestLabel">最高分</span><br/>
+        </td>
+    </tr>
+</table>
+</body>
+    <html>
+        <script>
+    var p=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
+
+
+    var field=new Field();
+    field.show();
+    function createItem(){
+        var item=new Item(field);
+        var value=(Math.floor(Math.random()/0.5)+1)*2;
+        var pos=p[Math.floor(Math.random()*16)];
+        item.init(value,pos);
+    }
+    function checkLose()
+    {
+        if(eval(field.status.join('+'))==16)
+                {
+                    if(field.checkLose())
+                    {
+                        var b=getCookie("ck2048bestscore");
+                        var b=b==null?0:b;
+                        if(field.score>b)
+                            setCookie("ck2048bestscore",field.score);
+                        alert("YOU LOSE!");
+                    }
+                    return;
+                }
+    }
+    function check()
+    {
+        if(field.isMoved==1)
+            {
+                createItem();
+                field.isMoved=0;
+            }
+            else
+                checkLose();
+    }
+    createItem();
+    createItem();
+    $(document).ready(function($) {
+        document.onkeydown = function(e){
+        var e = window.event ? window.event : e;
+        switch(e.keyCode){
+        case 13://enter
+            createItem();
+            break;
+        case 38: //up
+            field.moveUp();
+            check();
+            break;
+        case 40: //down
+            field.moveDown();
+            check();
+            break;
+        case 37: //left
+            field.moveLeft();
+            check();
+            break;
+        case 39: //right
+            field.moveRight();
+            check();
+            break;}}
+    });
+</script>
